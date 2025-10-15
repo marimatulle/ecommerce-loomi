@@ -20,4 +20,62 @@ model User {
   role       UserRole  @default(CLIENT)
   createdAt  DateTime  @default(now())
   updatedAt  DateTime  @updatedAt
+
+  client     Client?
 }
+
+model Order {
+  id         Int           @id @default(autoincrement())
+  clientId   Int
+  status     OrderStatus    @default(RECEIVED)
+  orderDate  DateTime       @default(now())
+  total      Decimal
+  client     Client         @relation(fields: [clientId], references: [id])
+  items      OrderItem[]
+}
+
+model OrderItem {
+  id         Int      @id @default(autoincrement())
+  orderId    Int
+  productId  Int
+  quantity   Int
+  unitPrice  Decimal
+  subtotal   Decimal
+  order      Order    @relation(fields: [orderId], references: [id])
+  product    Product  @relation(fields: [productId], references: [id])
+}
+
+enum OrderStatus {
+  RECEIVED
+  PREPARING
+  SHIPPED
+  DELIVERED
+}
+
+
+model Client {
+  id         Int      @id @default(autoincrement())
+  userId     Int      @unique
+  fullName   String
+  contact    String
+  address    String
+  status     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user       User     @relation(fields: [userId], references: [id])
+  orders     Order[]
+}
+
+model Product {
+  id          Int      @id @default(autoincrement())
+  name        String
+  description String
+  price       Decimal
+  stock       Int
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  orderItems  OrderItem[]
+}
+
