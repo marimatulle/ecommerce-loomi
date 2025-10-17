@@ -37,11 +37,13 @@ export class ProductsController {
   }
 
   @Get()
+  @Roles('ADMIN', 'CLIENT')
   findAll() {
     return this.productsService.findAll();
   }
 
   @Get(':id')
+  @Roles('ADMIN', 'CLIENT')
   findOne(@Param('id') id: string) {
     return this.productsService.findOne(+id);
   }
