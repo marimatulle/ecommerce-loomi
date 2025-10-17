@@ -31,7 +31,7 @@ describe('ProductsService', () => {
   const normalUser: AuthenticatedUser = {
     id: 2,
     email: 'user@test.com',
-    role: 'USER',
+    role: 'CLIENT',
   };
 
   beforeEach(async () => {

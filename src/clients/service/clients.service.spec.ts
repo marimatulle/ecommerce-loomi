@@ -32,7 +32,7 @@ describe('ClientsService', () => {
   const clientUser: AuthenticatedUser = {
     id: 2,
     email: 'client@test.com',
-    role: 'USER',
+    role: 'CLIENT',
   };
 
   beforeEach(async () => {
@@ -117,7 +117,7 @@ describe('ClientsService', () => {
       const otherUser: AuthenticatedUser = {
         id: 3,
         email: 'other@test.com',
-        role: 'USER',
+        role: 'CLIENT',
       };
 
       await expect(service.findOne(1, otherUser)).rejects.toThrow(
@@ -177,7 +177,7 @@ describe('ClientsService', () => {
       const otherUser: AuthenticatedUser = {
         id: 3,
         email: 'other@test.com',
-        role: 'USER',
+        role: 'CLIENT',
       };
 
       await expect(service.update(1, dto, otherUser)).rejects.toThrow(
