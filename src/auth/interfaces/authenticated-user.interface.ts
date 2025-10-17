@@ -1,5 +1,5 @@
 export interface AuthenticatedUser {
   id: number;
   email: string;
-  role: 'ADMIN' | 'USER';
+  role: 'ADMIN' | 'CLIENT';
 }

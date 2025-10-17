@@ -43,11 +43,13 @@ export class ClientsController {
   }
 
   @Get(':id')
+  @Roles('ADMIN', 'CLIENT')
   findOne(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
     return this.clientsService.findOne(+id, req.user);
   }
 
   @Patch(':id')
+  @Roles('ADMIN', 'CLIENT')
   update(
     @Param('id') id: string,
     @Body() dto: UpdateClientDto,
