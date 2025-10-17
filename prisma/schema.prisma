@@ -50,6 +50,7 @@ enum OrderStatus {
   PREPARING
   SHIPPED
   DELIVERED
+  CANCELED
 }
 
 
