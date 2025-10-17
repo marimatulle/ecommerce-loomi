@@ -27,7 +27,7 @@ model User {
 model Order {
   id         Int           @id @default(autoincrement())
   clientId   Int
-  status     Boolean    @default(true)
+  status     OrderStatus    @default(ORDERED)
   orderDate  DateTime       @default(now())
   total      Decimal
   client     Client         @relation(fields: [clientId], references: [id])
