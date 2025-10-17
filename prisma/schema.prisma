@@ -27,7 +27,7 @@ model User {
 model Order {
   id         Int           @id @default(autoincrement())
   clientId   Int
-  status     OrderStatus    @default(RECEIVED)
+  status     Boolean    @default(true)
   orderDate  DateTime       @default(now())
   total      Decimal
   client     Client         @relation(fields: [clientId], references: [id])
@@ -46,10 +46,11 @@ model OrderItem {
 }
 
 enum OrderStatus {
-  RECEIVED
+  ORDERED
   PREPARING
   SHIPPED
   DELIVERED
+  RECEIVED
   CANCELED
 }
 
