@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ClientsController } from 'src/clients/controller/clients.controller';
 import { ClientsService } from 'src/clients/service/clients.service';
 import { AuthGuard } from 'src/auth/auth.guard';
+import { FindAllClientsQueryDto } from 'src/clients/dtos/find-all-clients-query.dto';
 
 describe('ClientsController', () => {
   let controller: ClientsController;
@@ -54,8 +55,9 @@ describe('ClientsController', () => {
     expect(service.create).toHaveBeenCalledWith(mockUser.id, dto);
   });
 
-  it('should return all clients with default page', async () => {
+  it('should return all clients with default query', async () => {
     const clientsData = [{ id: 1, fullName: 'Test Client' }];
+    const defaultQuery: FindAllClientsQueryDto = { page: 1 };
     const paginatedResult = {
       data: clientsData,
       meta: {
@@ -69,10 +71,36 @@ describe('ClientsController', () => {
 
     (service.findAll as jest.Mock).mockResolvedValue(paginatedResult);
 
-    const result = await controller.findAll(1);
+    const result = await controller.findAll(defaultQuery);
 
     expect(result).toEqual(paginatedResult);
-    expect(service.findAll).toHaveBeenCalledWith(1);
+    expect(service.findAll).toHaveBeenCalledWith(defaultQuery);
+  });
+
+  it('should return all clients with specific filters', async () => {
+    const clientsData = [{ id: 2, fullName: 'Filtered Client' }];
+    const filteredQuery: FindAllClientsQueryDto = {
+      page: 2,
+      fullName: 'Filter',
+      status: true,
+    };
+    const paginatedResult = {
+      data: clientsData,
+      meta: {
+        totalItems: 5,
+        itemCount: 1,
+        itemsPerPage: 20,
+        totalPages: 1,
+        currentPage: 2,
+      },
+    };
+
+    (service.findAll as jest.Mock).mockResolvedValue(paginatedResult);
+
+    const result = await controller.findAll(filteredQuery);
+
+    expect(result).toEqual(paginatedResult);
+    expect(service.findAll).toHaveBeenCalledWith(filteredQuery);
   });
 
   it('should return a single client', async () => {

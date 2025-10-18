@@ -8,13 +8,14 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateOrderDto } from '../dtos/create-order.dto';
 import { UpdateOrderDto } from '../dtos/update-order.dto';
 import { AuthenticatedUser } from 'src/auth/interfaces/authenticated-user.interface';
-import { OrderStatus, UserRole } from '@prisma/client';
+import { OrderStatus, Prisma, UserRole } from '@prisma/client';
 import DecimalJS from 'decimal.js';
 import {
   calculateTotal,
   getClient,
   recalculateCartTotal,
 } from '../utils/order.utils';
+import { FindAllOrdersQueryDto } from '../dtos/find-all-orders-query.dto';
 
 const PAGE_SIZE = 20;
 
@@ -47,14 +48,34 @@ export class OrdersService {
     return order;
   }
 
-  async findAll(user: AuthenticatedUser, page: number = 1) {
+  async findAll(user: AuthenticatedUser, query: FindAllOrdersQueryDto) {
+    const { page, status, startDate, endDate } = query;
     const skip = (page - 1) * PAGE_SIZE;
 
-    let whereClause = {};
+    const whereClause: Prisma.OrderWhereInput = {
+      status: { not: OrderStatus.CART },
+    };
 
     if (user.role === UserRole.CLIENT) {
       const client = await getClient(this.prisma, user);
-      whereClause = { clientId: client.id };
+      whereClause.clientId = client.id;
+    }
+
+    if (status) {
+      whereClause.status = status;
+    }
+
+    if (startDate || endDate) {
+      whereClause.orderDate = {};
+
+      if (startDate) {
+        whereClause.orderDate.gte = new Date(startDate);
+      }
+      if (endDate) {
+        const end = new Date(endDate);
+        end.setHours(23, 59, 59, 999);
+        whereClause.orderDate.lte = end;
+      }
     }
 
     const totalCount = await this.prisma.order.count({ where: whereClause });
@@ -66,7 +87,22 @@ export class OrdersService {
       orderBy: { id: 'asc' },
       include: {
         items: true,
-        ...(user.role === UserRole.ADMIN ? { client: true } : {}),
+        ...(user.role === UserRole.ADMIN
+          ? {
+              client: {
+                select: {
+                  id: true,
+                  fullName: true,
+                  user: {
+                    select: {
+                      email: true,
+                      name: true,
+                    },
+                  },
+                },
+              },
+            }
+          : {}),
       },
     });
 

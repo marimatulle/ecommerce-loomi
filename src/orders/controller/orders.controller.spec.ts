@@ -1,9 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { OrdersController } from './orders.controller';
+import { OrdersController } from '../controller/orders.controller';
 import { OrdersService } from '../service/orders.service';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { AuthenticatedUser } from 'src/auth/interfaces/authenticated-user.interface';
 import { UpdateOrderDto } from '../dtos/update-order.dto';
+import { FindAllOrdersQueryDto } from '../dtos/find-all-orders-query.dto';
 
 describe('OrdersController', () => {
   let controller: OrdersController;
@@ -63,26 +64,32 @@ describe('OrdersController', () => {
       expect(service.create).toHaveBeenCalledWith(dto, mockUser);
     });
 
-    it('should call service.findAll with page 1 (default) and return paginated result', async () => {
+    it('should call service.findAll with default query and return paginated result', async () => {
+      const defaultQuery: FindAllOrdersQueryDto = { page: 1 };
       const paginatedOrders = {
         data: [{ id: 100 }],
         meta: { currentPage: 1, totalItems: 1 },
       };
       (service.findAll as jest.Mock).mockResolvedValue(paginatedOrders);
-      const result = await controller.findAll(mockReq, 1);
+      const result = await controller.findAll(mockReq, defaultQuery);
       expect(result).toEqual(paginatedOrders);
-      expect(service.findAll).toHaveBeenCalledWith(mockUser, 1);
+      expect(service.findAll).toHaveBeenCalledWith(mockUser, defaultQuery);
     });
-    it('should call service.findAll with a specific page number and return paginated result', async () => {
-      const page = 3;
+
+    it('should call service.findAll with specific filters and return paginated result', async () => {
+      const specificQuery: FindAllOrdersQueryDto = {
+        page: 2,
+        status: 'SHIPPED',
+        startDate: '2023-01-01',
+      };
       const paginatedOrders = {
-        data: [{ id: 100 }],
-        meta: { currentPage: page, totalItems: 45 },
+        data: [{ id: 100, status: 'SHIPPED' }],
+        meta: { currentPage: 2, totalItems: 45 },
       };
       (service.findAll as jest.Mock).mockResolvedValue(paginatedOrders);
-      const result = await controller.findAll(mockReq, page);
+      const result = await controller.findAll(mockReq, specificQuery);
       expect(result).toEqual(paginatedOrders);
-      expect(service.findAll).toHaveBeenCalledWith(mockUser, page);
+      expect(service.findAll).toHaveBeenCalledWith(mockUser, specificQuery);
     });
 
     it('should call service.findOne and return the result', async () => {

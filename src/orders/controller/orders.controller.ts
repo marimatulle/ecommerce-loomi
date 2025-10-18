@@ -11,7 +11,6 @@ import {
   ParseIntPipe,
   Query,
   HttpCode,
-  DefaultValuePipe,
 } from '@nestjs/common';
 import { OrdersService } from '../service/orders.service';
 import { CreateOrderDto } from '../dtos/create-order.dto';
@@ -19,9 +18,10 @@ import { UpdateOrderDto } from '../dtos/update-order.dto';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { RolesGuard } from 'src/roles/roles.guard';
 import { Roles } from 'src/roles/roles.decorator';
-import { ApiBearerAuth, ApiTags, ApiQuery } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AuthenticatedUser } from 'src/auth/interfaces/authenticated-user.interface';
 import { Request as ExpressRequest } from 'express';
+import { FindAllOrdersQueryDto } from '../dtos/find-all-orders-query.dto';
 
 interface AuthenticatedRequest extends ExpressRequest {
   user: AuthenticatedUser;
@@ -42,18 +42,11 @@ export class OrdersController {
 
   @Get()
   @Roles('ADMIN', 'CLIENT')
-  @ApiQuery({
-    name: 'page',
-    required: false,
-    type: Number,
-    description:
-      'Page number for list endpoints (page 1 by default, 20 items per page).',
-  })
   findAll(
     @Request() req: AuthenticatedRequest,
-    @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number,
+    @Query() query: FindAllOrdersQueryDto,
   ) {
-    return this.ordersService.findAll(req.user, page);
+    return this.ordersService.findAll(req.user, query);
   }
 
   @Get('cart')

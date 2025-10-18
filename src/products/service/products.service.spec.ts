@@ -9,6 +9,7 @@ import {
 import { CreateProductDto } from 'src/products/dtos/create-product.dto';
 import { UpdateProductDto } from 'src/products/dtos/update-product.dto';
 import { AuthenticatedUser } from 'src/auth/interfaces/authenticated-user.interface';
+import { FindAllProductsQueryDto } from 'src/products/dtos/find-all-products-query.dto';
 
 describe('ProductsService', () => {
   let service: ProductsService;
@@ -98,23 +99,26 @@ describe('ProductsService', () => {
       { id: 2, name: 'Ração 2' },
     ];
 
+    const defaultQuery: FindAllProductsQueryDto = { page: 1 };
+
     beforeEach(() => {
       mockPrisma.product.count.mockResolvedValue(totalItems);
       mockPrisma.product.findMany.mockResolvedValue(products);
     });
 
     it('should return paginated products and metadata for page 1 (default)', async () => {
-      const result = await service.findAll();
+      const result = await service.findAll(defaultQuery);
 
+      expect(mockPrisma.product.count).toHaveBeenCalledWith({ where: {} });
       expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
+          where: {},
           skip: 0,
           take: PAGE_SIZE,
           orderBy: { id: 'asc' },
         }),
       );
 
-      // Verifica a estrutura e metadados
       expect(result.data).toEqual(products);
       expect(result.meta.currentPage).toBe(1);
       expect(result.meta.totalPages).toBe(3);
@@ -123,13 +127,116 @@ describe('ProductsService', () => {
 
     it('should calculate skip correctly for a specific page (page 3)', async () => {
       const page = 3;
+      const query: FindAllProductsQueryDto = { page };
 
-      await service.findAll(page);
+      await service.findAll(query);
 
       expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           skip: (page - 1) * PAGE_SIZE,
           take: PAGE_SIZE,
+        }),
+      );
+    });
+
+    it('should apply name filter using "contains" and "insensitive"', async () => {
+      const query: FindAllProductsQueryDto = { page: 1, name: 'ração' };
+
+      await service.findAll(query);
+
+      expect(mockPrisma.product.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { name: { contains: 'ração', mode: 'insensitive' } },
+        }),
+      );
+      expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { name: { contains: 'ração', mode: 'insensitive' } },
+        }),
+      );
+    });
+
+    it('should apply minPrice filter using "gte"', async () => {
+      const query: FindAllProductsQueryDto = { page: 1, minPrice: 50 };
+
+      await service.findAll(query);
+
+      expect(mockPrisma.product.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { price: { gte: 50 } },
+        }),
+      );
+    });
+
+    it('should apply maxPrice filter using "lte"', async () => {
+      const query: FindAllProductsQueryDto = { page: 1, maxPrice: 150 };
+
+      await service.findAll(query);
+
+      expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { price: { lte: 150 } },
+        }),
+      );
+    });
+
+    it('should apply both minPrice and maxPrice filters', async () => {
+      const query: FindAllProductsQueryDto = {
+        page: 1,
+        minPrice: 50,
+        maxPrice: 150,
+      };
+
+      await service.findAll(query);
+
+      expect(mockPrisma.product.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { price: { gte: 50, lte: 150 } },
+        }),
+      );
+    });
+
+    it('should filter by available=true (stock > 0)', async () => {
+      const query: FindAllProductsQueryDto = { page: 1, available: true };
+
+      await service.findAll(query);
+
+      expect(mockPrisma.product.count).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { stock: { gt: 0 } },
+        }),
+      );
+    });
+
+    it('should filter by available=false (stock = 0)', async () => {
+      const query: FindAllProductsQueryDto = { page: 1, available: false };
+
+      await service.findAll(query);
+
+      expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { stock: { equals: 0 } },
+        }),
+      );
+    });
+
+    it('should combine all filters correctly', async () => {
+      const query: FindAllProductsQueryDto = {
+        page: 1,
+        name: 'ração',
+        minPrice: 10,
+        available: true,
+      };
+
+      await service.findAll(query);
+
+      expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            name: { contains: 'ração', mode: 'insensitive' },
+            price: { gte: 10 },
+            stock: { gt: 0 },
+          },
         }),
       );
     });

@@ -2,13 +2,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ProductsController } from 'src/products/controller/products.controller';
 import { ProductsService } from 'src/products/service/products.service';
 import { AuthGuard } from 'src/auth/auth.guard';
+import { FindAllProductsQueryDto } from 'src/products/dtos/find-all-products-query.dto';
 
 describe('ProductsController', () => {
   let controller: ProductsController;
   let service: ProductsService;
 
   const mockAdmin = { id: 1, email: 'admin@email.com', role: 'ADMIN' };
-  const mockUser = { id: 2, email: 'user@email.com', role: 'USER' };
+  const mockUser = { id: 2, email: 'user@email.com', role: 'CLIENT' };
   const mockReqAdmin = { user: mockAdmin } as any;
   const mockReqUser = { user: mockUser } as any;
 
@@ -34,6 +35,7 @@ describe('ProductsController', () => {
 
     controller = module.get<ProductsController>(ProductsController);
     service = module.get<ProductsService>(ProductsService);
+    jest.clearAllMocks();
   });
 
   it('should be defined', () => {
@@ -74,7 +76,7 @@ describe('ProductsController', () => {
     );
   });
 
-  it('should return all products with pagination data for a given page', async () => {
+  describe('findAll', () => {
     const productsData = [{ id: 1, name: 'Ração 1' }];
     const paginatedResult = {
       data: productsData,
@@ -83,26 +85,34 @@ describe('ProductsController', () => {
         itemCount: 1,
         itemsPerPage: 20,
         totalPages: 2,
-        currentPage: 2,
+        currentPage: 1,
       },
     };
-    (service.findAll as jest.Mock).mockResolvedValue(paginatedResult);
 
-    const pageNumber = 2;
+    it('should call service.findAll with default query (page 1, no filters)', async () => {
+      (service.findAll as jest.Mock).mockResolvedValue(paginatedResult);
+      const defaultQuery: FindAllProductsQueryDto = { page: 1 };
 
-    const result = await controller.findAll(pageNumber);
+      const result = await controller.findAll(defaultQuery);
 
-    expect(result).toEqual(paginatedResult);
-    expect(service.findAll).toHaveBeenCalledWith(pageNumber);
-  });
+      expect(result).toEqual(paginatedResult);
+      expect(service.findAll).toHaveBeenCalledWith(defaultQuery);
+    });
 
-  it('should call service.findAll with page 1 when no query is provided (default)', async () => {
-    const paginatedResult = { data: [], meta: { currentPage: 1 } };
-    (service.findAll as jest.Mock).mockResolvedValue(paginatedResult);
+    it('should call service.findAll with pagination and filters', async () => {
+      (service.findAll as jest.Mock).mockResolvedValue(paginatedResult);
+      const queryWithFilters: FindAllProductsQueryDto = {
+        page: 2,
+        name: 'ração',
+        minPrice: 100,
+        available: true,
+      };
 
-    await controller.findAll(1);
+      const result = await controller.findAll(queryWithFilters);
 
-    expect(service.findAll).toHaveBeenCalledWith(1);
+      expect(result).toEqual(paginatedResult);
+      expect(service.findAll).toHaveBeenCalledWith(queryWithFilters);
+    });
   });
 
   it('should return one product by id', async () => {

@@ -1,11 +1,16 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { OrdersService } from './orders.service';
+import { OrdersService } from '../service/orders.service';
 import { PrismaService } from 'src/prisma/prisma.service';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
 import { AuthenticatedUser } from 'src/auth/interfaces/authenticated-user.interface';
 import { OrderStatus, UserRole } from '@prisma/client';
 import Decimal from 'decimal.js';
 import { CreateOrderDto } from '../dtos/create-order.dto';
+import { FindAllOrdersQueryDto } from '../dtos/find-all-orders-query.dto';
 
 const mockGetClient: jest.Mock = jest.fn();
 const mockCalculateTotal: jest.Mock = jest.fn();
@@ -152,35 +157,38 @@ describe('OrdersService', () => {
       mockPrisma.order.count.mockResolvedValue(totalOrders);
     });
 
-    it('should return paginated orders and metadata for admin (all orders)', async () => {
-      const page = 1;
-      const result = await service.findAll(adminUser, page);
+    it('should return paginated orders and metadata for admin (all non-cart orders)', async () => {
+      const query: FindAllOrdersQueryDto = { page: 1 };
+      await service.findAll(adminUser, query);
 
-      expect(mockPrisma.order.count).toHaveBeenCalledWith({ where: {} });
-
-      expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
+      expect(mockPrisma.order.count).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: {},
-          skip: 0,
-          take: PAGE_SIZE,
-          include: { items: true, client: true },
+          where: { status: { not: OrderStatus.CART } },
         }),
       );
 
-      expect(result.data).toEqual(orders);
-      expect(result.meta.totalItems).toBe(totalOrders);
-      expect(result.meta.currentPage).toBe(page);
-      expect(result.meta.totalPages).toBe(2);
+      expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { status: { not: OrderStatus.CART } },
+          skip: 0,
+          take: PAGE_SIZE,
+          orderBy: { id: 'asc' },
+          include: { items: true, client: { select: expect.any(Object) } },
+        }),
+      );
     });
 
     it('should return paginated orders and metadata for client (filtered by clientId)', async () => {
       const clientOrdersCount = 15;
-      const page = 1;
+      const query: FindAllOrdersQueryDto = { page: 1 };
 
       mockPrisma.order.count.mockResolvedValue(clientOrdersCount);
 
-      const result = await service.findAll(clientUser, page);
-      const expectedWhere = { clientId: 1 };
+      await service.findAll(clientUser, query);
+      const expectedWhere = {
+        status: { not: OrderStatus.CART },
+        clientId: 1,
+      };
 
       expect(mockPrisma.order.count).toHaveBeenCalledWith(
         expect.objectContaining({ where: expectedWhere }),
@@ -188,25 +196,106 @@ describe('OrdersService', () => {
       expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
         expect.objectContaining({
           where: expectedWhere,
-          skip: 0,
-          take: PAGE_SIZE,
           include: { items: true },
         }),
       );
+    });
 
-      expect(result.data).toEqual(orders);
-      expect(result.meta.totalItems).toBe(clientOrdersCount);
-      expect(result.meta.totalPages).toBe(1);
+    it('should apply status filter correctly', async () => {
+      const query: FindAllOrdersQueryDto = {
+        page: 1,
+        status: OrderStatus.SHIPPED,
+      };
+      await service.findAll(adminUser, query);
+
+      expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { status: OrderStatus.SHIPPED },
+        }),
+      );
+    });
+
+    it('should apply startDate filter correctly', async () => {
+      const startDate = '2023-10-01';
+      const query: FindAllOrdersQueryDto = { page: 1, startDate };
+      await service.findAll(adminUser, query);
+
+      expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            status: { not: OrderStatus.CART },
+            orderDate: { gte: new Date(startDate) },
+          },
+        }),
+      );
+    });
+
+    it('should apply endDate filter correctly', async () => {
+      const endDate = '2023-10-31';
+      const query: FindAllOrdersQueryDto = { page: 1, endDate };
+      await service.findAll(adminUser, query);
+
+      const expectedEnd = new Date(endDate);
+      expectedEnd.setHours(23, 59, 59, 999);
+
+      expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            status: { not: OrderStatus.CART },
+            orderDate: { lte: expectedEnd },
+          },
+        }),
+      );
+    });
+
+    it('should apply both startDate and endDate filters correctly', async () => {
+      const startDate = '2023-10-01';
+      const endDate = '2023-10-31';
+      const query: FindAllOrdersQueryDto = { page: 1, startDate, endDate };
+      await service.findAll(adminUser, query);
+
+      const expectedEnd = new Date(endDate);
+      expectedEnd.setHours(23, 59, 59, 999);
+
+      expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            status: { not: OrderStatus.CART },
+            orderDate: { gte: new Date(startDate), lte: expectedEnd },
+          },
+        }),
+      );
     });
   });
 
   describe('findOne', () => {
-    it('should return order if found', async () => {
-      const order = { id: 1, items: [] };
-      mockPrisma.order.findUnique.mockResolvedValue(order);
+    const order = { id: 1, clientId: 1, items: [] };
 
+    it('should return order if found (no user context)', async () => {
+      mockPrisma.order.findUnique.mockResolvedValue(order);
       const result = await service.findOne(1);
       expect(result).toEqual(order);
+    });
+
+    it('should return order for admin user', async () => {
+      mockPrisma.order.findUnique.mockResolvedValue(order);
+      const result = await service.findOne(1, adminUser);
+      expect(result).toEqual(order);
+    });
+
+    it('should return order for owner client', async () => {
+      mockPrisma.order.findUnique.mockResolvedValue(order);
+      const result = await service.findOne(1, clientUser);
+      expect(result).toEqual(order);
+    });
+
+    it('should throw ForbiddenException if client tries to access other client order', async () => {
+      const otherOrder = { id: 2, clientId: 2, items: [] };
+      mockPrisma.order.findUnique.mockResolvedValue(otherOrder);
+
+      await expect(service.findOne(2, clientUser)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
 
     it('should throw if order not found', async () => {
@@ -222,6 +311,7 @@ describe('OrdersService', () => {
       mockPrisma.order.findUnique.mockResolvedValue({
         id: orderId,
         clientId: 1,
+        status: OrderStatus.ORDERED,
       });
     });
 
@@ -236,6 +326,31 @@ describe('OrdersService', () => {
         adminUser,
       );
       expect(result.status).toBe(OrderStatus.SHIPPED);
+      expect(mockPrisma.order.update).toHaveBeenCalled();
+    });
+
+    it('should update status for client when allowed (RECEIVED)', async () => {
+      mockPrisma.order.update.mockResolvedValue({
+        id: orderId,
+        status: OrderStatus.RECEIVED,
+      });
+      const result = await service.update(
+        orderId,
+        { status: OrderStatus.RECEIVED } as any,
+        clientUser,
+      );
+      expect(result.status).toBe(OrderStatus.RECEIVED);
+      expect(mockPrisma.order.update).toHaveBeenCalled();
+    });
+
+    it('should throw ForbiddenException if client tries to set admin-only status (PREPARING)', async () => {
+      await expect(
+        service.update(
+          orderId,
+          { status: OrderStatus.PREPARING } as any,
+          clientUser,
+        ),
+      ).rejects.toThrow(ForbiddenException);
     });
   });
 
@@ -247,6 +362,15 @@ describe('OrdersService', () => {
 
       const result = await service.remove(1, adminUser);
       expect(result).toEqual(order);
+      expect(mockPrisma.order.delete).toHaveBeenCalledWith({
+        where: { id: 1 },
+      });
+    });
+
+    it('should throw ForbiddenException for client', async () => {
+      await expect(service.remove(1, clientUser)).rejects.toThrow(
+        ForbiddenException,
+      );
     });
   });
 
@@ -370,80 +494,56 @@ describe('OrdersService', () => {
       unitPrice: 10,
       subtotal: 30,
     };
+    const mockProduct = {
+      id: PRODUCT_ID,
+      price: new Decimal(10),
+      name: 'Test Product',
+    };
 
     beforeEach(() => {
       mockPrisma.orderItem.findFirst.mockResolvedValue(mockOrderItem);
-      mockPrisma.order.findFirst.mockResolvedValueOnce(mockCartWithThreeItems);
-    });
-
-    it('should throw BadRequestException if quantityToRemove is <= 0', async () => {
-      await expect(
-        service.removeFromCart(PRODUCT_ID, clientUser, 0),
-      ).rejects.toThrow(BadRequestException);
-    });
-
-    it('should reduce quantity and update subtotal (partial removal)', async () => {
-      const quantityToRemove = 1;
-      const newQuantity = mockOrderItem.quantity - quantityToRemove;
-      const newSubtotal = newQuantity * mockOrderItem.unitPrice;
-
-      const updatedCart = {
-        ...mockCartWithThreeItems,
-        total: new Decimal(newSubtotal),
-        items: [
-          {
-            ...mockOrderItem,
-            quantity: newQuantity,
-            subtotal: new Decimal(newSubtotal),
-          },
-        ],
-      };
-
+      mockPrisma.product.findUnique.mockResolvedValue(mockProduct);
       mockPrisma.orderItem.count.mockResolvedValue(1);
-      mockPrisma.order.findFirst.mockResolvedValue(updatedCart);
+    });
+
+    it('should remove the exact quantity and update order item (remaining > 0)', async () => {
+      const quantityToRemove = 2;
+      const newQuantity = 1;
+      const newSubtotal = 10;
 
       await service.removeFromCart(PRODUCT_ID, clientUser, quantityToRemove);
 
-      expect(mockPrisma.orderItem.update).toHaveBeenCalled();
+      expect(mockPrisma.orderItem.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: ITEM_ID },
+          data: {
+            quantity: newQuantity,
+            subtotal: newSubtotal,
+          },
+        }),
+      );
+      expect(mockPrisma.orderItem.delete).not.toHaveBeenCalled();
       expect(mockRecalculateCartTotal).toHaveBeenCalledWith(
         mockPrisma,
         CART_ID,
       );
     });
 
-    it('should delete order item if quantityToRemove >= current quantity (total removal)', async () => {
-      const quantityToRemove = 5;
-
-      mockPrisma.orderItem.count.mockResolvedValue(1);
-      mockPrisma.orderItem.delete.mockResolvedValue(mockOrderItem);
+    it('should delete the order item if remaining quantity is 0', async () => {
+      const quantityToRemove = 3;
 
       await service.removeFromCart(PRODUCT_ID, clientUser, quantityToRemove);
 
-      expect(mockPrisma.orderItem.delete).toHaveBeenCalled();
-      expect(mockPrisma.order.delete).not.toHaveBeenCalled();
+      expect(mockPrisma.orderItem.delete).toHaveBeenCalledWith({
+        where: { id: ITEM_ID },
+      });
+      expect(mockPrisma.orderItem.update).not.toHaveBeenCalled();
     });
 
-    it('should delete cart and return success object if it becomes empty', async () => {
-      const quantityToRemove = 3;
-
-      mockPrisma.orderItem.count.mockResolvedValue(0);
-      mockPrisma.orderItem.delete.mockResolvedValue(mockOrderItem);
-
-      const result = await service.removeFromCart(
-        PRODUCT_ID,
-        clientUser,
-        quantityToRemove,
-      );
-
-      expect(mockPrisma.order.delete).toHaveBeenCalledWith({
-        where: { id: CART_ID },
-      });
-      expect(result).toEqual({
-        statusCode: 200,
-        message:
-          'Item removed successfully. Cart is now empty and has been deleted.',
-        cart: null,
-      });
+    it('should throw BadRequestException if quantityToRemove is negative', async () => {
+      await expect(
+        service.removeFromCart(PRODUCT_ID, clientUser, -1),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 });

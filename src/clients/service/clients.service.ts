@@ -8,6 +8,8 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateClientDto } from '../dtos/create-client.dto';
 import { UpdateClientDto } from '../dtos/update-client.dto';
 import { AuthenticatedUser } from 'src/auth/interfaces/authenticated-user.interface';
+import { FindAllClientsQueryDto } from '../dtos/find-all-clients-query.dto';
+import { Prisma } from '@prisma/client';
 
 const PAGE_SIZE = 20;
 
@@ -27,15 +29,41 @@ export class ClientsService {
     });
   }
 
-  async findAll(page: number = 1) {
+  async findAll(query: FindAllClientsQueryDto) {
+    const { page, fullName, email, status } = query;
     const skip = (page - 1) * PAGE_SIZE;
-    const totalCount = await this.prisma.client.count();
+
+    const whereClause: Prisma.ClientWhereInput = {};
+
+    if (fullName) {
+      whereClause.fullName = {
+        contains: fullName,
+        mode: 'insensitive',
+      };
+    }
+
+    if (status !== undefined) {
+      whereClause.status = status;
+    }
+
+    if (email) {
+      whereClause.user = {
+        email: {
+          contains: email,
+          mode: 'insensitive',
+        },
+      };
+    }
+
+    const totalCount = await this.prisma.client.count({ where: whereClause });
     const clients = await this.prisma.client.findMany({
+      where: whereClause,
       skip,
       take: PAGE_SIZE,
       include: { user: { select: { email: true, role: true } } },
       orderBy: { id: 'asc' },
     });
+
     return {
       data: clients,
       meta: {

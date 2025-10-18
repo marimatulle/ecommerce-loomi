@@ -8,6 +8,8 @@ import { PrismaService } from 'src/prisma/prisma.service';
 import { CreateProductDto } from '../dtos/create-product.dto';
 import { UpdateProductDto } from '../dtos/update-product.dto';
 import { AuthenticatedUser } from 'src/auth/interfaces/authenticated-user.interface';
+import { FindAllProductsQueryDto } from '../dtos/find-all-products-query.dto';
+import { Prisma } from '@prisma/client';
 
 const PAGE_SIZE = 20;
 
@@ -27,12 +29,41 @@ export class ProductsService {
     return this.prisma.product.create({ data: dto });
   }
 
-  async findAll(page: number = 1) {
+  async findAll(query: FindAllProductsQueryDto) {
+    const { page, name, minPrice, maxPrice, available } = query;
     const skip = (page - 1) * PAGE_SIZE;
 
-    const totalCount = await this.prisma.product.count();
+    const where: Prisma.ProductWhereInput = {};
+
+    if (name) {
+      where.name = {
+        contains: name,
+        mode: 'insensitive',
+      };
+    }
+
+    if (minPrice || maxPrice) {
+      where.price = {};
+      if (minPrice) {
+        where.price.gte = minPrice;
+      }
+      if (maxPrice) {
+        where.price.lte = maxPrice;
+      }
+    }
+
+    if (available !== undefined) {
+      if (available === true) {
+        where.stock = { gt: 0 };
+      } else {
+        where.stock = { equals: 0 };
+      }
+    }
+
+    const totalCount = await this.prisma.product.count({ where });
 
     const products = await this.prisma.product.findMany({
+      where,
       skip,
       take: PAGE_SIZE,
       orderBy: { id: 'asc' },
