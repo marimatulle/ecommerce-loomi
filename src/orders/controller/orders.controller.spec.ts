@@ -2,9 +2,16 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { OrdersController } from '../controller/orders.controller';
 import { OrdersService } from '../service/orders.service';
 import { AuthGuard } from 'src/auth/auth.guard';
+import { RolesGuard } from 'src/roles/roles.guard';
 import { AuthenticatedUser } from 'src/auth/interfaces/authenticated-user.interface';
 import { UpdateOrderDto } from '../dtos/update-order.dto';
 import { FindAllOrdersQueryDto } from '../dtos/find-all-orders-query.dto';
+import { SanitizationPipe } from 'src/pipes/sanization.pipe';
+import { PipeTransform } from '@nestjs/common';
+
+const mockSanitizationPipe: PipeTransform = {
+  transform: (val: any) => val,
+};
 
 describe('OrdersController', () => {
   let controller: OrdersController;
@@ -41,6 +48,10 @@ describe('OrdersController', () => {
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: jest.fn(() => true) })
+      .overrideGuard(RolesGuard)
+      .useValue({ canActivate: jest.fn(() => true) })
+      .overridePipe(SanitizationPipe)
+      .useValue(mockSanitizationPipe)
       .compile();
 
     controller = module.get<OrdersController>(OrdersController);

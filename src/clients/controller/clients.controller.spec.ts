@@ -2,7 +2,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ClientsController } from 'src/clients/controller/clients.controller';
 import { ClientsService } from 'src/clients/service/clients.service';
 import { AuthGuard } from 'src/auth/auth.guard';
+import { RolesGuard } from 'src/roles/roles.guard';
 import { FindAllClientsQueryDto } from 'src/clients/dtos/find-all-clients-query.dto';
+import { SanitizationPipe } from 'src/pipes/sanization.pipe';
+import { PipeTransform } from '@nestjs/common';
+
+const mockSanitizationPipe: PipeTransform = {
+  transform: (val: any) => val,
+};
 
 describe('ClientsController', () => {
   let controller: ClientsController;
@@ -29,6 +36,10 @@ describe('ClientsController', () => {
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: jest.fn(() => true) })
+      .overrideGuard(RolesGuard)
+      .useValue({ canActivate: jest.fn(() => true) })
+      .overridePipe(SanitizationPipe)
+      .useValue(mockSanitizationPipe)
       .compile();
 
     controller = module.get<ClientsController>(ClientsController);

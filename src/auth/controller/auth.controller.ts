@@ -5,6 +5,7 @@ import {
   Post,
   Request,
   UseGuards,
+  UsePipes,
 } from '@nestjs/common';
 import {
   ApiBearerAuth,
@@ -16,8 +17,10 @@ import { RegisterDto } from '../dtos/register.dto';
 import { LoginDto } from '../dtos/login.dto';
 import { AuthService } from '../service/auth.service';
 import { AuthGuard } from '../auth.guard';
+import { SanitizationPipe } from 'src/pipes/sanization.pipe';
 
 @ApiTags('Auth')
+@UsePipes(SanitizationPipe)
 @Controller('auth')
 export class AuthController {
   constructor(private authService: AuthService) {}

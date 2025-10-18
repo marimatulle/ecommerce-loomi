@@ -9,6 +9,7 @@ import {
   UseGuards,
   Request,
   Query,
+  UsePipes,
 } from '@nestjs/common';
 import { ClientsService } from '../service/clients.service';
 import { CreateClientDto } from '../dtos/create-client.dto';
@@ -20,6 +21,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AuthenticatedUser } from 'src/auth/interfaces/authenticated-user.interface';
 import { Request as ExpressRequest } from 'express';
 import { FindAllClientsQueryDto } from '../dtos/find-all-clients-query.dto';
+import { SanitizationPipe } from 'src/pipes/sanization.pipe';
 
 interface AuthenticatedRequest extends ExpressRequest {
   user: AuthenticatedUser;
@@ -27,6 +29,7 @@ interface AuthenticatedRequest extends ExpressRequest {
 
 @ApiTags('Client')
 @ApiBearerAuth()
+@UsePipes(SanitizationPipe)
 @UseGuards(AuthGuard, RolesGuard)
 @Controller('client')
 export class ClientsController {
