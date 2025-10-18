@@ -2,13 +2,31 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { OrdersController } from './orders.controller';
 import { OrdersService } from '../service/orders.service';
 import { AuthGuard } from 'src/auth/auth.guard';
+import { AuthenticatedUser } from 'src/auth/interfaces/authenticated-user.interface';
+import { UpdateOrderDto } from '../dtos/update-order.dto';
 
 describe('OrdersController', () => {
   let controller: OrdersController;
   let service: OrdersService;
 
-  const mockUser = { id: 2, email: 'client@test.com', role: 'CLIENT' };
+  const mockUser: AuthenticatedUser = {
+    id: 2,
+    email: 'client@test.com',
+    role: 'CLIENT' as any,
+  };
   const mockReq = { user: mockUser } as any;
+
+  const mockOrdersService = {
+    create: jest.fn(),
+    findAll: jest.fn(),
+    findOne: jest.fn(),
+    update: jest.fn(),
+    remove: jest.fn(),
+    getCart: jest.fn(),
+    addToCart: jest.fn(),
+    checkout: jest.fn(),
+    removeFromCart: jest.fn(),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -16,13 +34,7 @@ describe('OrdersController', () => {
       providers: [
         {
           provide: OrdersService,
-          useValue: {
-            create: jest.fn(),
-            findAll: jest.fn(),
-            findOne: jest.fn(),
-            update: jest.fn(),
-            remove: jest.fn(),
-          },
+          useValue: mockOrdersService,
         },
       ],
     })
@@ -32,64 +44,135 @@ describe('OrdersController', () => {
 
     controller = module.get<OrdersController>(OrdersController);
     service = module.get<OrdersService>(OrdersService);
+    jest.clearAllMocks();
   });
 
   it('should be defined', () => {
     expect(controller).toBeDefined();
   });
 
-  it('should create an order', async () => {
-    const dto = { items: [{ productId: 1, quantity: 2 }] };
-    const created = { id: 100, ...dto };
+  describe('Order CRUD', () => {
+    it('should call service.create and return the result', async () => {
+      const dto = { items: [{ productId: 1, quantity: 2 }] };
+      const created = { id: 100, ...dto };
 
-    (service.create as jest.Mock).mockResolvedValue(created);
-    const result = await controller.create(mockReq, dto);
+      (service.create as jest.Mock).mockResolvedValue(created);
+      const result = await controller.create(mockReq, dto as any);
 
-    expect(result).toEqual(created);
-    expect(service.create).toHaveBeenCalledWith(dto, mockUser);
+      expect(result).toEqual(created);
+      expect(service.create).toHaveBeenCalledWith(dto, mockUser);
+    });
+
+    it('should call service.findAll and return the result', async () => {
+      const orders = [{ id: 100 }];
+      (service.findAll as jest.Mock).mockResolvedValue(orders);
+
+      const result = await controller.findAll(mockReq);
+      expect(result).toEqual(orders);
+      expect(service.findAll).toHaveBeenCalledWith(mockUser);
+    });
+
+    it('should call service.findOne and return the result', async () => {
+      const order = { id: 100 };
+      (service.findOne as jest.Mock).mockResolvedValue(order);
+
+      const result = await controller.findOne(100, mockReq);
+      expect(result).toEqual(order);
+      expect(service.findOne).toHaveBeenCalledWith(100, mockUser);
+    });
+
+    it('should call service.update and return the result', async () => {
+      const dto: UpdateOrderDto = { status: 'CANCELED' as any };
+      const updated = { id: 100, status: 'CANCELED' };
+      (service.update as jest.Mock).mockResolvedValue(updated);
+
+      const result = await controller.update(100, dto, mockReq);
+
+      expect(result).toEqual(updated);
+      expect(service.update).toHaveBeenCalledWith(100, dto, mockUser);
+    });
+
+    it('should call service.remove and return the result', async () => {
+      const removed = { id: 100 };
+      (service.remove as jest.Mock).mockResolvedValue(removed);
+
+      const result = await controller.remove(100, mockReq);
+
+      expect(result).toEqual(removed);
+      expect(service.remove).toHaveBeenCalledWith(100, mockUser);
+    });
   });
 
-  it('should return all orders', async () => {
-    const orders = [{ id: 100 }];
-    (service.findAll as jest.Mock).mockResolvedValue(orders);
+  describe('Cart Endpoints', () => {
+    const cart = { id: 10, items: [] };
 
-    const result = await controller.findAll(mockReq);
-    expect(result).toEqual(orders);
-    expect(service.findAll).toHaveBeenCalledWith(mockUser);
-  });
+    it('should call service.getCart and return the result', async () => {
+      (service.getCart as jest.Mock).mockResolvedValue(cart);
+      const result = await controller.getCart(mockReq);
 
-  it('should return single order', async () => {
-    const order = { id: 100 };
-    (service.findOne as jest.Mock).mockResolvedValue(order);
+      expect(result).toEqual(cart);
+      expect(service.getCart).toHaveBeenCalledWith(mockUser);
+    });
 
-    const result = await controller.findOne('100');
-    expect(result).toEqual(order);
-    expect(service.findOne).toHaveBeenCalledWith(100);
-  });
+    it('should call service.addToCart and return the result', async () => {
+      const dto = { items: [{ productId: 1, quantity: 1 }] };
+      (service.addToCart as jest.Mock).mockResolvedValue(cart);
 
-  it('should update order status', async () => {
-    const updated = { id: 100, status: 'CANCELED' };
-    (service.update as jest.Mock).mockResolvedValue(updated);
+      const result = await controller.addToCart(mockReq, dto as any);
 
-    const result = await controller.updateStatus(
-      '100',
-      { status: 'CANCELED' },
-      mockReq,
-    );
-    expect(result).toEqual(updated);
-    expect(service.update).toHaveBeenCalledWith(
-      100,
-      { status: 'CANCELED' },
-      mockUser,
-    );
-  });
+      expect(result).toEqual(cart);
+      expect(service.addToCart).toHaveBeenCalledWith(dto, mockUser);
+    });
 
-  it('should remove order', async () => {
-    const removed = { id: 100 };
-    (service.remove as jest.Mock).mockResolvedValue(removed);
+    it('should call service.checkout and return the ordered order', async () => {
+      const orderedOrder = { id: 10, status: 'ORDERED' };
+      (service.checkout as jest.Mock).mockResolvedValue(orderedOrder);
 
-    const result = await controller.remove('100', mockReq);
-    expect(result).toEqual(removed);
-    expect(service.remove).toHaveBeenCalledWith(100, mockUser);
+      const result = await controller.checkout(mockReq);
+
+      expect(result).toEqual(orderedOrder);
+      expect(service.checkout).toHaveBeenCalledWith(mockUser);
+    });
+
+    it('should call service.removeFromCart with provided quantity', async () => {
+      const expectedResult = { status: 'UPDATED' };
+      (service.removeFromCart as jest.Mock).mockResolvedValue(expectedResult);
+
+      const productId = 5;
+      const quantityToRemove = 2;
+
+      const result = await controller.removeFromCart(
+        productId,
+        mockReq,
+        quantityToRemove,
+      );
+
+      expect(result).toEqual(expectedResult);
+      expect(service.removeFromCart).toHaveBeenCalledWith(
+        productId,
+        mockUser,
+        quantityToRemove,
+      );
+    });
+
+    it('should call service.removeFromCart with undefined quantity when not provided', async () => {
+      const expectedResult = { status: 'UPDATED_DEFAULT' };
+      (service.removeFromCart as jest.Mock).mockResolvedValue(expectedResult);
+
+      const productId = 5;
+
+      const result = await controller.removeFromCart(
+        productId,
+        mockReq,
+        undefined,
+      );
+
+      expect(result).toEqual(expectedResult);
+      expect(service.removeFromCart).toHaveBeenCalledWith(
+        productId,
+        mockUser,
+        undefined,
+      );
+    });
   });
 });

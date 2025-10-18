@@ -46,6 +46,7 @@ model OrderItem {
 }
 
 enum OrderStatus {
+  CART
   ORDERED
   PREPARING
   SHIPPED
