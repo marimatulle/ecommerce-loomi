@@ -8,6 +8,9 @@ import {
   Delete,
   UseGuards,
   Request,
+  ParseIntPipe,
+  Query,
+  HttpCode,
 } from '@nestjs/common';
 import { OrdersService } from '../service/orders.service';
 import { CreateOrderDto } from '../dtos/create-order.dto';
@@ -42,25 +45,65 @@ export class OrdersController {
     return this.ordersService.findAll(req.user);
   }
 
+  @Get('cart')
+  @Roles('CLIENT')
+  getCart(@Request() req: AuthenticatedRequest) {
+    return this.ordersService.getCart(req.user);
+  }
+
+  @Post('cart')
+  @Roles('CLIENT')
+  addToCart(@Request() req: AuthenticatedRequest, @Body() dto: CreateOrderDto) {
+    return this.ordersService.addToCart(dto, req.user);
+  }
+
+  @Post('cart/checkout')
+  @Roles('CLIENT')
+  checkout(@Request() req: AuthenticatedRequest) {
+    return this.ordersService.checkout(req.user);
+  }
+
+  @Delete('cart/:productId')
+  @Roles('CLIENT')
+  @HttpCode(200)
+  removeFromCart(
+    @Param('productId', ParseIntPipe) productId: number,
+    @Request() req: AuthenticatedRequest,
+    @Query('quantity', new ParseIntPipe({ optional: true }))
+    quantityToRemove?: number,
+  ) {
+    return this.ordersService.removeFromCart(
+      productId,
+      req.user,
+      quantityToRemove,
+    );
+  }
+
   @Get(':id')
   @Roles('ADMIN', 'CLIENT')
-  findOne(@Param('id') id: string) {
-    return this.ordersService.findOne(+id);
+  findOne(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.ordersService.findOne(id, req.user);
   }
 
   @Patch(':id')
   @Roles('ADMIN', 'CLIENT')
-  updateStatus(
-    @Param('id') id: string,
+  update(
+    @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdateOrderDto,
     @Request() req: AuthenticatedRequest,
   ) {
-    return this.ordersService.update(+id, dto, req.user);
+    return this.ordersService.update(id, dto, req.user);
   }
 
   @Delete(':id')
   @Roles('ADMIN')
-  remove(@Param('id') id: string, @Request() req: AuthenticatedRequest) {
-    return this.ordersService.remove(+id, req.user);
+  remove(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: AuthenticatedRequest,
+  ) {
+    return this.ordersService.remove(id, req.user);
   }
 }
