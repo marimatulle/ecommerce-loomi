@@ -23,6 +23,7 @@ describe('OrdersService', () => {
   const CART_ID = 5;
   const PRODUCT_ID = 1;
   const ITEM_ID = 10;
+  const PAGE_SIZE = 20;
 
   const mockPrisma = {
     $transaction: jest.fn((callback) => callback(mockPrisma)),
@@ -41,6 +42,7 @@ describe('OrdersService', () => {
       update: jest.fn(),
       delete: jest.fn(),
       findFirst: jest.fn(),
+      count: jest.fn(),
     },
     orderItem: {
       findMany: jest.fn(),
@@ -142,28 +144,59 @@ describe('OrdersService', () => {
   });
 
   describe('findAll', () => {
-    const adminUser: AuthenticatedUser = {
-      id: 99,
-      email: 'admin@test.com',
-      role: UserRole.ADMIN,
-    };
+    const totalOrders = 35;
+    const orders = [{ id: 1 }, { id: 2 }];
 
-    it('should return all orders for admin', async () => {
-      const orders = [{ id: 1 }];
+    beforeEach(() => {
       mockPrisma.order.findMany.mockResolvedValue(orders);
-
-      const result = await service.findAll(adminUser);
-      expect(result).toEqual(orders);
+      mockPrisma.order.count.mockResolvedValue(totalOrders);
     });
 
-    it('should return client orders', async () => {
-      const orders = [{ id: 1 }];
-      mockPrisma.order.findMany.mockResolvedValue(orders);
+    it('should return paginated orders and metadata for admin (all orders)', async () => {
+      const page = 1;
+      const result = await service.findAll(adminUser, page);
 
-      await service.findAll(clientUser);
+      expect(mockPrisma.order.count).toHaveBeenCalledWith({ where: {} });
+
       expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { clientId: 1 } }),
+        expect.objectContaining({
+          where: {},
+          skip: 0,
+          take: PAGE_SIZE,
+          include: { items: true, client: true },
+        }),
       );
+
+      expect(result.data).toEqual(orders);
+      expect(result.meta.totalItems).toBe(totalOrders);
+      expect(result.meta.currentPage).toBe(page);
+      expect(result.meta.totalPages).toBe(2);
+    });
+
+    it('should return paginated orders and metadata for client (filtered by clientId)', async () => {
+      const clientOrdersCount = 15;
+      const page = 1;
+
+      mockPrisma.order.count.mockResolvedValue(clientOrdersCount);
+
+      const result = await service.findAll(clientUser, page);
+      const expectedWhere = { clientId: 1 };
+
+      expect(mockPrisma.order.count).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expectedWhere }),
+      );
+      expect(mockPrisma.order.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: expectedWhere,
+          skip: 0,
+          take: PAGE_SIZE,
+          include: { items: true },
+        }),
+      );
+
+      expect(result.data).toEqual(orders);
+      expect(result.meta.totalItems).toBe(clientOrdersCount);
+      expect(result.meta.totalPages).toBe(1);
     });
   });
 

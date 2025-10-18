@@ -19,6 +19,7 @@ describe('ProductsService', () => {
       findUnique: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
+      count: jest.fn(),
     },
   };
 
@@ -90,13 +91,47 @@ describe('ProductsService', () => {
   });
 
   describe('findAll', () => {
-    it('should return all products', async () => {
-      const products = [{ id: 1, name: 'Ração' }];
-      mockPrisma.product.findMany.mockResolvedValue(products);
+    const PAGE_SIZE = 20;
+    const totalItems = 45;
+    const products = [
+      { id: 1, name: 'Ração 1' },
+      { id: 2, name: 'Ração 2' },
+    ];
 
+    beforeEach(() => {
+      mockPrisma.product.count.mockResolvedValue(totalItems);
+      mockPrisma.product.findMany.mockResolvedValue(products);
+    });
+
+    it('should return paginated products and metadata for page 1 (default)', async () => {
       const result = await service.findAll();
-      expect(result).toEqual(products);
-      expect(mockPrisma.product.findMany).toHaveBeenCalled();
+
+      expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: 0,
+          take: PAGE_SIZE,
+          orderBy: { id: 'asc' },
+        }),
+      );
+
+      // Verifica a estrutura e metadados
+      expect(result.data).toEqual(products);
+      expect(result.meta.currentPage).toBe(1);
+      expect(result.meta.totalPages).toBe(3);
+      expect(result.meta.totalItems).toBe(totalItems);
+    });
+
+    it('should calculate skip correctly for a specific page (page 3)', async () => {
+      const page = 3;
+
+      await service.findAll(page);
+
+      expect(mockPrisma.product.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: (page - 1) * PAGE_SIZE,
+          take: PAGE_SIZE,
+        }),
+      );
     });
   });
 

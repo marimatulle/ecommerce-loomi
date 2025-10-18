@@ -16,6 +16,8 @@ import {
   recalculateCartTotal,
 } from '../utils/order.utils';
 
+const PAGE_SIZE = 20;
+
 @Injectable()
 export class OrdersService {
   constructor(private prisma: PrismaService) {}
@@ -45,19 +47,39 @@ export class OrdersService {
     return order;
   }
 
-  async findAll(user: AuthenticatedUser) {
-    if (user.role === UserRole.ADMIN) {
-      return this.prisma.order.findMany({
-        include: { items: true, client: true },
-      });
+  async findAll(user: AuthenticatedUser, page: number = 1) {
+    const skip = (page - 1) * PAGE_SIZE;
+
+    let whereClause = {};
+
+    if (user.role === UserRole.CLIENT) {
+      const client = await getClient(this.prisma, user);
+      whereClause = { clientId: client.id };
     }
 
-    const client = await getClient(this.prisma, user);
+    const totalCount = await this.prisma.order.count({ where: whereClause });
 
-    return this.prisma.order.findMany({
-      where: { clientId: client.id },
-      include: { items: true },
+    const orders = await this.prisma.order.findMany({
+      where: whereClause,
+      skip,
+      take: PAGE_SIZE,
+      orderBy: { id: 'asc' },
+      include: {
+        items: true,
+        ...(user.role === UserRole.ADMIN ? { client: true } : {}),
+      },
     });
+
+    return {
+      data: orders,
+      meta: {
+        totalItems: totalCount,
+        itemCount: orders.length,
+        itemsPerPage: PAGE_SIZE,
+        totalPages: Math.ceil(totalCount / PAGE_SIZE),
+        currentPage: page,
+      },
+    };
   }
 
   async findOne(id: number, user?: AuthenticatedUser) {

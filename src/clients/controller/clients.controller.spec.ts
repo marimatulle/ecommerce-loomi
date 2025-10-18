@@ -54,14 +54,25 @@ describe('ClientsController', () => {
     expect(service.create).toHaveBeenCalledWith(mockUser.id, dto);
   });
 
-  it('should return all clients', async () => {
-    const clients = [{ id: 1, fullName: 'Test Client' }];
-    (service.findAll as jest.Mock).mockResolvedValue(clients);
+  it('should return all clients with default page', async () => {
+    const clientsData = [{ id: 1, fullName: 'Test Client' }];
+    const paginatedResult = {
+      data: clientsData,
+      meta: {
+        totalItems: 1,
+        itemCount: 1,
+        itemsPerPage: 20,
+        totalPages: 1,
+        currentPage: 1,
+      },
+    };
 
-    const result = await controller.findAll();
+    (service.findAll as jest.Mock).mockResolvedValue(paginatedResult);
 
-    expect(result).toEqual(clients);
-    expect(service.findAll).toHaveBeenCalled();
+    const result = await controller.findAll(1);
+
+    expect(result).toEqual(paginatedResult);
+    expect(service.findAll).toHaveBeenCalledWith(1);
   });
 
   it('should return a single client', async () => {

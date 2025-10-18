@@ -63,13 +63,26 @@ describe('OrdersController', () => {
       expect(service.create).toHaveBeenCalledWith(dto, mockUser);
     });
 
-    it('should call service.findAll and return the result', async () => {
-      const orders = [{ id: 100 }];
-      (service.findAll as jest.Mock).mockResolvedValue(orders);
-
-      const result = await controller.findAll(mockReq);
-      expect(result).toEqual(orders);
-      expect(service.findAll).toHaveBeenCalledWith(mockUser);
+    it('should call service.findAll with page 1 (default) and return paginated result', async () => {
+      const paginatedOrders = {
+        data: [{ id: 100 }],
+        meta: { currentPage: 1, totalItems: 1 },
+      };
+      (service.findAll as jest.Mock).mockResolvedValue(paginatedOrders);
+      const result = await controller.findAll(mockReq, 1);
+      expect(result).toEqual(paginatedOrders);
+      expect(service.findAll).toHaveBeenCalledWith(mockUser, 1);
+    });
+    it('should call service.findAll with a specific page number and return paginated result', async () => {
+      const page = 3;
+      const paginatedOrders = {
+        data: [{ id: 100 }],
+        meta: { currentPage: page, totalItems: 45 },
+      };
+      (service.findAll as jest.Mock).mockResolvedValue(paginatedOrders);
+      const result = await controller.findAll(mockReq, page);
+      expect(result).toEqual(paginatedOrders);
+      expect(service.findAll).toHaveBeenCalledWith(mockUser, page);
     });
 
     it('should call service.findOne and return the result', async () => {

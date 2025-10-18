@@ -9,6 +9,8 @@ import { CreateProductDto } from '../dtos/create-product.dto';
 import { UpdateProductDto } from '../dtos/update-product.dto';
 import { AuthenticatedUser } from 'src/auth/interfaces/authenticated-user.interface';
 
+const PAGE_SIZE = 20;
+
 @Injectable()
 export class ProductsService {
   constructor(private prisma: PrismaService) {}
@@ -25,8 +27,27 @@ export class ProductsService {
     return this.prisma.product.create({ data: dto });
   }
 
-  async findAll() {
-    return this.prisma.product.findMany();
+  async findAll(page: number = 1) {
+    const skip = (page - 1) * PAGE_SIZE;
+
+    const totalCount = await this.prisma.product.count();
+
+    const products = await this.prisma.product.findMany({
+      skip,
+      take: PAGE_SIZE,
+      orderBy: { id: 'asc' },
+    });
+
+    return {
+      data: products,
+      meta: {
+        totalItems: totalCount,
+        itemCount: products.length,
+        itemsPerPage: PAGE_SIZE,
+        totalPages: Math.ceil(totalCount / PAGE_SIZE),
+        currentPage: page,
+      },
+    };
   }
 
   async findOne(id: number) {
