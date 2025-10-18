@@ -8,9 +8,7 @@ import {
   Delete,
   UseGuards,
   Request,
-  DefaultValuePipe,
   Query,
-  ParseIntPipe,
 } from '@nestjs/common';
 import { ClientsService } from '../service/clients.service';
 import { CreateClientDto } from '../dtos/create-client.dto';
@@ -18,9 +16,10 @@ import { UpdateClientDto } from '../dtos/update-client.dto';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { RolesGuard } from 'src/roles/roles.guard';
 import { Roles } from 'src/roles/roles.decorator';
-import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AuthenticatedUser } from 'src/auth/interfaces/authenticated-user.interface';
 import { Request as ExpressRequest } from 'express';
+import { FindAllClientsQueryDto } from '../dtos/find-all-clients-query.dto';
 
 interface AuthenticatedRequest extends ExpressRequest {
   user: AuthenticatedUser;
@@ -41,15 +40,8 @@ export class ClientsController {
 
   @Get()
   @Roles('ADMIN')
-  @ApiQuery({
-    name: 'page',
-    required: false,
-    type: Number,
-    description:
-      'Page number for list endpoints (page 1 by default, 20 items per page).',
-  })
-  findAll(@Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number) {
-    return this.clientsService.findAll(page);
+  findAll(@Query() query: FindAllClientsQueryDto) {
+    return this.clientsService.findAll(query);
   }
 
   @Get(':id')
