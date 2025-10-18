@@ -8,6 +8,9 @@ import {
   Delete,
   UseGuards,
   Request,
+  Query,
+  DefaultValuePipe,
+  ParseIntPipe,
 } from '@nestjs/common';
 import { ProductsService } from '../service/products.service';
 import { CreateProductDto } from '../dtos/create-product.dto';
@@ -15,7 +18,7 @@ import { UpdateProductDto } from '../dtos/update-product.dto';
 import { AuthGuard } from 'src/auth/auth.guard';
 import { RolesGuard } from 'src/roles/roles.guard';
 import { Roles } from 'src/roles/roles.decorator';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { AuthenticatedUser } from 'src/auth/interfaces/authenticated-user.interface';
 import { Request as ExpressRequest } from 'express';
 
@@ -38,8 +41,15 @@ export class ProductsController {
 
   @Get()
   @Roles('ADMIN', 'CLIENT')
-  findAll() {
-    return this.productsService.findAll();
+  @ApiQuery({
+    name: 'page',
+    required: false,
+    type: Number,
+    description:
+      'Page number for list endpoints (page 1 by default, 20 items per page).',
+  })
+  findAll(@Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number) {
+    return this.productsService.findAll(page);
   }
 
   @Get(':id')

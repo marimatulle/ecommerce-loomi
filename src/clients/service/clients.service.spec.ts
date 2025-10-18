@@ -20,6 +20,7 @@ describe('ClientsService', () => {
       findMany: jest.fn(),
       update: jest.fn(),
       delete: jest.fn(),
+      count: jest.fn(),
     },
   };
 
@@ -82,14 +83,57 @@ describe('ClientsService', () => {
   });
 
   describe('findAll', () => {
-    it('should return all clients', async () => {
+    it('should return clients data and pagination metadata for page 1', async () => {
       const clients = [
         { id: 1, fullName: 'Test', user: { email: 'a@a.com', role: 'USER' } },
       ];
+      const totalItems = 35;
+
+      mockPrisma.client.count.mockResolvedValue(totalItems);
       mockPrisma.client.findMany.mockResolvedValue(clients);
 
-      const result = await service.findAll();
-      expect(result).toEqual(clients);
+      const page = 1;
+      const pageSize = 20;
+
+      const result = await service.findAll(page);
+
+      expect(mockPrisma.client.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+          include: expect.any(Object),
+          orderBy: { id: 'asc' },
+        }),
+      );
+
+      expect(result.data).toEqual(clients);
+
+      expect(result.meta).toEqual({
+        totalItems: totalItems,
+        itemCount: clients.length,
+        itemsPerPage: pageSize,
+        totalPages: 2,
+        currentPage: page,
+      });
+    });
+
+    it('should calculate skip correctly for a subsequent page (page 2)', async () => {
+      const clients = [{ id: 21, fullName: 'Test 21' }];
+      const totalItems = 35;
+      mockPrisma.client.count.mockResolvedValue(totalItems);
+      mockPrisma.client.findMany.mockResolvedValue(clients);
+
+      const page = 2;
+      const pageSize = 20;
+
+      await service.findAll(page);
+
+      expect(mockPrisma.client.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+        }),
+      );
     });
   });
 

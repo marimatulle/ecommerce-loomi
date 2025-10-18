@@ -74,14 +74,35 @@ describe('ProductsController', () => {
     );
   });
 
-  it('should return all products', async () => {
-    const products = [{ id: 1, name: 'Ração' }];
-    (service.findAll as jest.Mock).mockResolvedValue(products);
+  it('should return all products with pagination data for a given page', async () => {
+    const productsData = [{ id: 1, name: 'Ração 1' }];
+    const paginatedResult = {
+      data: productsData,
+      meta: {
+        totalItems: 25,
+        itemCount: 1,
+        itemsPerPage: 20,
+        totalPages: 2,
+        currentPage: 2,
+      },
+    };
+    (service.findAll as jest.Mock).mockResolvedValue(paginatedResult);
 
-    const result = await controller.findAll();
+    const pageNumber = 2;
 
-    expect(result).toEqual(products);
-    expect(service.findAll).toHaveBeenCalled();
+    const result = await controller.findAll(pageNumber);
+
+    expect(result).toEqual(paginatedResult);
+    expect(service.findAll).toHaveBeenCalledWith(pageNumber);
+  });
+
+  it('should call service.findAll with page 1 when no query is provided (default)', async () => {
+    const paginatedResult = { data: [], meta: { currentPage: 1 } };
+    (service.findAll as jest.Mock).mockResolvedValue(paginatedResult);
+
+    await controller.findAll(1);
+
+    expect(service.findAll).toHaveBeenCalledWith(1);
   });
 
   it('should return one product by id', async () => {

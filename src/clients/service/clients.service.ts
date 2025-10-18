@@ -9,6 +9,8 @@ import { CreateClientDto } from '../dtos/create-client.dto';
 import { UpdateClientDto } from '../dtos/update-client.dto';
 import { AuthenticatedUser } from 'src/auth/interfaces/authenticated-user.interface';
 
+const PAGE_SIZE = 20;
+
 @Injectable()
 export class ClientsService {
   constructor(private prisma: PrismaService) {}
@@ -25,10 +27,25 @@ export class ClientsService {
     });
   }
 
-  async findAll() {
-    return this.prisma.client.findMany({
+  async findAll(page: number = 1) {
+    const skip = (page - 1) * PAGE_SIZE;
+    const totalCount = await this.prisma.client.count();
+    const clients = await this.prisma.client.findMany({
+      skip,
+      take: PAGE_SIZE,
       include: { user: { select: { email: true, role: true } } },
+      orderBy: { id: 'asc' },
     });
+    return {
+      data: clients,
+      meta: {
+        totalItems: totalCount,
+        itemCount: clients.length,
+        itemsPerPage: PAGE_SIZE,
+        totalPages: Math.ceil(totalCount / PAGE_SIZE),
+        currentPage: page,
+      },
+    };
   }
 
   async findOne(id: number, user: AuthenticatedUser) {
