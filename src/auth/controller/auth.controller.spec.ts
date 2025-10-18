@@ -2,6 +2,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from './auth.controller';
 import { AuthService } from '../service/auth.service';
 import { AuthGuard } from '../auth.guard';
+import { SanitizationPipe } from 'src/pipes/sanization.pipe';
+import { PipeTransform } from '@nestjs/common';
+
+const mockSanitizationPipe: PipeTransform = {
+  transform: (val: any) => val,
+};
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -22,6 +28,8 @@ describe('AuthController', () => {
     })
       .overrideGuard(AuthGuard)
       .useValue({ canActivate: jest.fn(() => true) })
+      .overridePipe(SanitizationPipe)
+      .useValue(mockSanitizationPipe)
       .compile();
 
     controller = module.get<AuthController>(AuthController);
