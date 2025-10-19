@@ -76,6 +76,9 @@ Este é o módulo central do e-commerce, lidando com o ciclo de vida completo do
   - A documentação interativa de todos os endpoints está disponível através do Swagger UI quando a aplicação estiver rodando:
     - **🔗 Swagger URL:** http://localhost:3000/api/docs
 
+**7. Backlog:**
+  - Backlog está disponível em Projects desse repositório.
+    
 ---
 
 ## 💻 Tecnologias Utilizadas:
