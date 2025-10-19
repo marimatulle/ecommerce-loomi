@@ -3,14 +3,16 @@ import * as sanitizeHtml from 'sanitize-html';
 
 @Injectable()
 export class SanitizationPipe implements PipeTransform {
+  private readonly options: sanitizeHtml.IOptions;
+
   private readonly defaultOptions: sanitizeHtml.IOptions = {
     allowedTags: [],
     allowedAttributes: {},
   };
 
-  constructor(
-    private readonly options: sanitizeHtml.IOptions = this.defaultOptions,
-  ) {}
+  constructor() {
+    this.options = this.defaultOptions;
+  }
 
   transform(value: any, metadata: ArgumentMetadata) {
     if (
