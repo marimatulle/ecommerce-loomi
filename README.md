@@ -105,3 +105,6 @@ As IAs utilizadas no projeto foram: ChatGPT, Gemini e Copilot.
   ```
     Me ajude na padronização dos testes unitários
   ```
+  ```
+    Como eu posso melhorar essa lógica? Me mande vários exemplos
+  ```
